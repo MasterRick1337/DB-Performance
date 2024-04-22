@@ -85,6 +85,7 @@ import json
 import pymysql.cursors
 from pymongo import MongoClient
 
+# Connection to mysql database
 mysql_conn = pymysql.connect(host='localhost',
                              port=3306,
                              user='root',
@@ -93,11 +94,13 @@ mysql_conn = pymysql.connect(host='localhost',
                              charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
 
+# Connection to mongodb database
 mongo_client = MongoClient('localhost', 27017, username='root', password='password')
 mongo_db = mongo_client['database']
 mongo_collection = mongo_db['collection']
 
 
+# Generates fake data with Faker library
 def generate_fake_data():
     fake = Faker()
     data = []
@@ -113,12 +116,14 @@ def generate_fake_data():
     return data
 
 
+# Writes data into a json file(fake_data.json)
 def write_to_file(data, filename):
     with open(filename, 'w') as file:
         json.dump(data, file)
     print(f"Data written to {filename}.")
 
 
+# Reads from fake_data.json and inserts it into mysql database using prepared statements
 def insert_into_mysql_from_file(filename):
     print("Inserting datasets into MySQL from file...")
     with open(filename, 'r') as file:
@@ -131,6 +136,7 @@ def insert_into_mysql_from_file(filename):
     print("Finished inserting datasets into MySQL.")
 
 
+# Reads from fake_data.json and inserts it into mongodb database using prepared statements
 def insert_into_mongodb_from_file(filename):
     print("Inserting datasets into MongoDB from file...")
     with open(filename, 'r') as file:
@@ -139,6 +145,7 @@ def insert_into_mongodb_from_file(filename):
     print("Finished inserting datasets into MongoDB.")
 
 
+# Measures time taken for a function to execute with given arguments (important for insert time)
 def measure_time(func, *args, **kwargs):
     start_time = time.time()
     func(*args, **kwargs)
@@ -147,25 +154,32 @@ def measure_time(func, *args, **kwargs):
 
 
 if __name__ == "__main__":
+    # Fake data function
     data = generate_fake_data()
 
+    # Writes data into json file
     write_to_file(data, 'fake_data.json')
 
+    # Splits it into mysql and mongodb json files
     mysql_filename = 'mysql_data.json'
     mongo_filename = 'mongo_data.json'
 
-    mysql_data = [{'name': record['name'], 'address': record['address'], 'phone_number': record['phone_number']} for record in data]
+    # Inserts into mysql and mongodb database/collection
+    mysql_data = [{'name': record['name'], 'address': record['address'], 'phone_number': record['phone_number']} for
+                  record in data]
     mongo_data = data
 
     write_to_file(mysql_data, mysql_filename)
     write_to_file(mongo_data, mongo_filename)
 
+    # Measures insert time for mysql and mongodb database
     mysql_insert_time = measure_time(insert_into_mysql_from_file, mysql_filename)
     print(f"Data inserted into MySQL database in {mysql_insert_time} seconds.")
 
     mongo_insert_time = measure_time(insert_into_mongodb_from_file, mongo_filename)
     print(f"Data inserted into MongoDB database in {mongo_insert_time} seconds.")
 
+    # Creates index on name column in mysql database
     with mysql_conn.cursor() as cursor:
         try:
             cursor.execute("DROP INDEX idx_name ON datatable")
@@ -180,10 +194,12 @@ if __name__ == "__main__":
     mysql_conn.commit()
     print("Indexes created in MySQL database.")
 
+    # creates index on name and address in mongodb database
     mongo_collection.create_index([('name', 1)])
     mongo_collection.create_index([('address', 1)])
     print("Indexes created in MongoDB collection.")
 
+    # Executes query on name column in mysql database and measures time taken
     query = {'name': 'John Doe'}
 
     with mysql_conn.cursor() as cursor:
@@ -191,9 +207,10 @@ if __name__ == "__main__":
             lambda: cursor.execute("SELECT * FROM datatable WHERE name = %s", (query['name'],)))
         print(f"MySQL query with index executed in {mysql_query_time} seconds.")
 
+    # Executes query on name column in mongodb database and measures time taken
     mongo_query_time = measure_time(lambda: mongo_collection.find(query))
     print(f"MongoDB query with index executed in {mongo_query_time} seconds.")
 
+    # close mysql and mongodb database connection
     mysql_conn.close()
     mongo_client.close()
-
